@@ -1,0 +1,10 @@
+{
+    "pays": "France",
+    "derniere_maj": "2025-04-13T15:19:51.525174",
+    "nombre_jours": 491,
+    "plage_dates": {
+        "debut": "2020-04-01",
+        "fin": "2021-08-04"
+    },
+    "population_reference": 67000000
+}
