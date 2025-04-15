@@ -1,6 +1,7 @@
 {
+    "description": "Métadonnées du dataset complet après prétraitement (avant split 80/20).",
     "pays": "France",
-    "derniere_maj": "2025-04-13T15:19:51.525174",
+    "derniere_maj": "2025-04-15T22:01:46.748742",
     "nombre_jours": 491,
     "plage_dates": {
         "debut": "2020-04-01",

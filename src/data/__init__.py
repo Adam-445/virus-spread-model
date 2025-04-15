@@ -33,25 +33,29 @@ class DataPipeline:
             # Étape 1: Téléchargement
             fetcher = DataFetcher(self.raw_path)
             confirmed, deaths, recovered = fetcher.fetch_data()
-            
+
             # Étape 2: Nettoyage
             cleaner = DataCleaner(self.population, self.processed_path)
             df = cleaner.clean_jhu_data(
-                confirmed, deaths, recovered,
-                country=self.country
-            )
-            
+                confirmed,
+                deaths,
+                recovered,
+                country=self.country,
+                save=True,
+                split=True,
+            )[0]
+
             # Étape 3: Validation
             validator = DataValidator(
                 population=self.population,
                 raw_path=self.raw_path,
-                processed_path=self.processed_path
+                processed_path=self.processed_path,
             )
             validator.validate_raw_data()
             validator.validate_processed_data(self.country)
-            
+
             return df
-            
+
         except Exception as e:
             print(f"Échec du pipeline: {str(e)}")
             raise

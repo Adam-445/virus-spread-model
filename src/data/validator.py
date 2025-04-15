@@ -59,12 +59,12 @@ class DataValidator:
         df = pd.read_csv(file_path)
         
         # Vérification des valeurs négatives
-        for col in ['S', 'I', 'R', 'D']:
+        for col in ["Susceptibles", "Infectes", "Retablis", "Deces"]:
             if (df[col] < 0).any():
                 raise ValueError(f"Valeurs négatives détectées dans {col}")
 
         # Vérification de la cohérence démographique
-        total = df[['S', 'I', 'R', 'D']].sum(axis=1)
+        total = df[["Susceptibles", "Infectes", "Retablis", "Deces"]].sum(axis=1)
 
         if (total > self.population).any():
             raise ValueError("Somme S+I+R+D dépasse la population totale")
@@ -75,12 +75,13 @@ class DataValidator:
     def _save_metadata(self, df: pd.DataFrame, country: str):
         """Sauvegarde les métadonnées techniques du traitement"""
         metadata = {
+            "description": "Métadonnées du dataset complet après prétraitement (avant split 80/20).",
             "pays": country,
             "derniere_maj": pd.Timestamp.now().isoformat(),
             "nombre_jours": len(df),
             "plage_dates": {
-                "debut": df['date'].min(),
-                "fin": df['date'].max()
+                "debut": df["Date"].min(),
+                "fin": df["Date"].max()
             },
             "population_reference": self.population
         }
