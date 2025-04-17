@@ -1,4 +1,3 @@
-import zipfile
 from pathlib import Path
 
 import pandas as pd
@@ -8,105 +7,91 @@ from tqdm import tqdm
 
 class DataFetcher:
     """
-    Classe pour le téléchargement et l'extraction des données brutes COVID-19 depuis JHU
+    Classe responsable du téléchargement et du chargement des données brutes COVID-19
+
     Attributes:
-        raw_path (Path): Chemin vers le dossier de stockage des données brutes
-        url (str): URL de la source des données
-        zip_path (Path): Chemin complet du fichier zip téléchargé
-        extracted_path (Path): Chemin d'extraction des données
+        raw_path (Path): Répertoire de stockage des données brutes
+        url (str): URL source du dataset
+        file_path (Path): Chemin complet vers le fichier CSV téléchargé
     """
 
-    def __init__(self, raw_path: Path = None):
-        """Initialise les chemins des données brutes"""
-        # Défaut: <racine_projet>/data/raw
-        if not raw_path:
-            project_root = Path(__file__).resolve().parents[2]
-            raw_path = project_root / "data/raw"
-
-        self.raw_path = Path(raw_path)
-
-        # Crée le dossier si inexistant
+    def __init__(self, raw_path: Path):
+        # Par défaut : <project_root>/data/raw
+        self.raw_path = raw_path or Path(__file__).resolve().parents[2] / "data/raw"
         self.raw_path.mkdir(parents=True, exist_ok=True)
 
-        self.url = (
-            "https://github.com/CSSEGISandData/COVID-19/archive/refs/heads/master.zip"
-        )
-        self.zip_path = self.raw_path / "covid19.zip"
-        self.extracted_path = (
-            self.raw_path
-            / "COVID-19-master/csse_covid_19_data/csse_covid_19_time_series"
-        )
+        self.url = "https://covid.ourworldindata.org/data/owid-covid-data.csv"
+        self.file_path = self.raw_path / "owid-covid-data.csv"
 
-    def fetch_data(self):
+    def fetch_data(self) -> pd.DataFrame:
         """
-        Orchestre le processus complet :
-        1. Téléchargement du zip (si absent)
-        2. Extraction des fichiers (si absents)
-        3. Chargement des CSV dans des DataFrames
+        Télécharge (si nécessaire) et charge le dataset complet
+
         Returns:
-            tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]: (confirmed, deaths, recovered)
+            pd.DataFrame: DataFrame contenant toutes les données mondiales
+
+        Raises:
+            ConnectionError: Si le téléchargement échoue
+            FileNotFoundError: Si le fichier local est introuvable après téléchargement
+            pd.errors.ParserError: Si le parsing CSV échoue
         """
-        if not self.zip_path.exists():
-            self._download()
-
-        if not self.extracted_path.exists():
-            self._extract()
-
-        return self._load_csvs()
-
-    def _download(self):
-        """Télécharge le fichier zip avec barre de progression"""
         try:
-            # Configuration de la requête HTTP en mode stream
-            response = requests.get(self.url, stream=True, timeout=10)
+            if not self.file_path.exists():
+                self._download_dataset()
 
-            # Lève une exception pour les codes 4xx/5xx
+            # Chargement avec vérification des dates
+            return pd.read_csv(
+                self.file_path,
+                parse_dates=["date"],
+            )
+
+        except pd.errors.ParserError as e:
+            raise pd.errors.ParserError(
+                f"Erreur de parsing du fichier {self.file_path}: {str(e)}"
+            ) from e
+
+    def _download_dataset(self):
+        """
+        Télécharge le dataset avec gestion des erreurs et barre de progression
+
+        Raises:
+            ConnectionError: Pour les erreurs réseau
+            requests.HTTPError: Pour les réponses HTTP non valides
+        """
+        try:
+            # Configuration de la requête avec timeout
+            response = requests.get(
+                self.url,
+                stream=True,
+            )
             response.raise_for_status()
 
-            # Récupération de la taille totale pour la barre de progression
-            total = int(response.headers.get("content-length", 0))
-
-            # Écriture par blocs avec mise à jour de la barre de progression
-            with open(self.zip_path, "wb") as f, tqdm(
-                desc="Téléchargement données JHU",
-                total=total,
-                unit="B",
-                unit_scale=True,
-                unit_divisor=1024,
-            ) as bar:
-                for chunk in response.iter_content(chunk_size=1024):
-                    # Filtre les keep-alive chunks vides
-                    if chunk:
-                        f.write(chunk)
-                        bar.update(len(chunk))
+            # Sauvegarde avec barre de progression
+            self._save_with_progress(response)
 
         except requests.exceptions.RequestException as e:
-            print(f"Échec du téléchargement: {e}")
-            raise
+            raise ConnectionError(f"Erreur de connexion: {str(e)}") from e
 
-    def _extract(self):
-        """Extrait les fichiers du zip téléchargé"""
-        print("Extraction des archives...")
-        with zipfile.ZipFile(self.zip_path) as z:
-            # Extraction dans le dossier raw
-            z.extractall(self.raw_path)
+    def _save_with_progress(self, response: requests.Response):
+        """
+        Sauvegarde le contenu de la réponse avec barre de progression
 
-    def _load_csvs(self):
-        """Charge les données CSV extraites dans des DataFrames Pandas"""
-        confirmed = pd.read_csv(
-            self.extracted_path / "time_series_covid19_confirmed_global.csv"
-        )
-        deaths = pd.read_csv(
-            self.extracted_path / "time_series_covid19_deaths_global.csv"
-        )
-        recovered = pd.read_csv(
-            self.extracted_path / "time_series_covid19_recovered_global.csv"
-        )
-        return confirmed, deaths, recovered
+        Args:
+            response: Objet Response de requests
 
+        Returns:
+            None: Écrit le fichier sur le disque
+        """
+        total_size = int(response.headers.get("content-length", 0))
 
-# Exemple d'utilisation
-if __name__ == "__main__":
-    fetcher = DataFetcher()
-    confirmed, deaths, recovered = fetcher.fetch_data()
-    print("Aperçu des données confirmées:\n", confirmed.head())
+        with open(self.file_path, "wb") as f, tqdm(
+            desc=f"Téléchargement {self.file_path.name}",
+            total=total_size,
+            unit="B",
+            unit_scale=True,
+            unit_divisor=1024,
+        ) as bar:
+            for chunk in response.iter_content(chunk_size=16 * 1024):  # 16KB chunks
+                if chunk:
+                    f.write(chunk)
+                    bar.update(len(chunk))

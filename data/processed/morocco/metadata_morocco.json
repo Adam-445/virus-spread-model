@@ -1,0 +1,17 @@
+{
+    "pays": "morocco",
+    "nombre_jours_total": 1096,
+    "plage_dates": {
+        "debut": "2020-05-01T00:00:00",
+        "fin": "2023-05-01T00:00:00"
+    },
+    "derniere_maj": "2025-04-17T20:32:07.422262",
+    "colonnes": [
+        "date",
+        "Jour",
+        "S",
+        "I",
+        "R",
+        "D"
+    ]
+}
