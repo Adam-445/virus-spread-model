@@ -5,154 +5,139 @@ import pandas as pd
 
 class DataCleaner:
     """
-    Classe pour le nettoyage et la transformation des données COVID-19 en format SIRD (Susceptible-Infecté-Rétabli-Décédé)
+    Classe de transformation des données brutes en format SIRD normalisé
 
     Attributes:
-        population (int): Population totale du pays cible
-        processed_path (Path): Chemin de sauvegarde des données traitées
+        country (str): Nom du pays ou code ISO3
+        use_iso_code (bool): True pour utiliser le code ISO3 au lieu du nom
+        processed_path (Path): Répertoire de sortie des données nettoyées
     """
 
-    def __init__(self, population: int, processed_path: Path = None):
-        """Initialise les paramètres de nettoyage"""
-        # Défaut: <racine_projet>/data/processed
-        if not processed_path:
-            project_root = Path(__file__).resolve().parents[2]
-            processed_path = project_root / "data/processed"
-
-        self.processed_path = Path(processed_path)
+    def __init__(
+        self,
+        processed_path: Path,
+        country: str = "France",
+        use_iso_code: bool = False,
+    ):
+        self.processed_path = (
+            processed_path
+            or Path(__file__).resolve().parents[2]
+            / "data/processed"
+            / self.country.lower()
+        )
         self.processed_path.mkdir(parents=True, exist_ok=True)
 
-        # Population pour le calcul des Susceptibles
-        self.population = population
+        self.country = country.capitalize()
+        self.use_iso_code = use_iso_code
 
-    def clean_jhu_data(
+    def clean_and_save(
         self,
-        confirmed: pd.DataFrame,
-        deaths: pd.DataFrame,
-        recovered: pd.DataFrame,
-        country: str = "France",
+        global_df: pd.DataFrame,
         save: bool = True,
-        split: bool = True,
-    ) -> pd.DataFrame:
+        start_date: str = None,
+        end_date: str = None,
+    ) -> dict:
         """
-        Transforme les données brutes JHU en format SIRD standardisé
+        Pipeline complet de nettoyage.
 
         Args:
-            confirmed (pd.DataFrame): Données des cas confirmés
-            deaths (pd.DataFrame): Données des décès
-            recovered (pd.DataFrame): Données des guérisons
-            country (str): Pays à traiter
-            save (bool): Sauvegarder le résultat si True
+            global_df (DataFrame): Données OWID complètes
+            save (bool): Sauvegarder les fichiers CSV
+            start_date (str): Filtre temporel (YYYY-MM-DD)
+            end_date (str): Filtre temporel (YYYY-MM-DD)
 
         Returns:
-            DataFrame: Données au format SIRD avec colonnes [date, S, I, R, D]
+            dict: { "train": DataFrame, "test": DataFrame }
         """
-        # Agrégation des données pour le pays spécifié
-        df = self._aggregate_data(confirmed, deaths, recovered, country)
+        # 1. Filtrage pays
+        df = self._filter_country_data(global_df)
 
-        # Traitement des dates
-        df = self._process_dates(df)
+        # 2. Filtrage date
+        df = self._filter_dates(df, start_date, end_date)
 
-        # Filtrage temporel
-        df = self._filter_dates(df)
+        # 3. Calcul des compartiments SIRD
+        df = self._calculate_sird(df)
 
-        # Correction des anomalies
-        df = self._filter_anomalies(df)
+        # 4. Split train/test
+        train, test = self._split_data(df)
 
-        # Calcul du nombre de jours depuis le début
-        df["Jour"] = (df["Date"] - df["Date"].min()).dt.days
-
-        # Calcul des Susceptibles (Population - Infectés - Guéris - Décédés)
-        df["Susceptibles"] = self.population - df[
-            ["Infectes", "Retablis", "Deces"]
-        ].sum(axis=1)
-
-        # Formatage final
-        df = df[["Jour", "Susceptibles", "Infectes", "Retablis", "Deces", "Date"]]
-
-        # Sauvegarde et retour
+        # 5. Sauvegarde optionnelle
         if save:
-            self._save(df, f"sird_{country.lower()}.csv")
+            self._save(train, test)
 
-        if split:
-            return self._split_and_save(df, country, save)
+        return {"train": train, "test": test}
 
-        return df
+    def _filter_country_data(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Filtre les données pour un pays spécifique (par nom ou ISO3)"""
+        if self.use_iso_code:
+            filtered = df[df["iso_code"] == self.country].copy()
+        else:
+            filtered = df[df["location"] == self.country].copy()
 
-    def _process_dates(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Gestion complète des dates"""
-        df["Date"] = pd.to_datetime(df.index, format="%m/%d/%y", errors="coerce")
-        return df.dropna(subset=["Date"]).sort_values("Date").reset_index(drop=True)
+        if filtered.empty:
+            raise ValueError(f"Aucune donnée trouvée pour le pays : {self.country}")
 
-    def _filter_dates(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Application des filtres temporels"""
-        # Filtre de début
-        # Les valeurs de décès et de guérisons avant avril 2020 restent nulles (plateau à 0),
-        # ce qui fausse les dynamiques SIRD. On commence donc à partir du 1er avril 2020.
-        start_date = pd.to_datetime("2020-04-01")
-        df = df[df["Date"] >= start_date]
+        return filtered
 
-        # Filtre de fin
-        # Les données de guérisons s'arrêtent brutalement à une certaine date,
-        # donc on tronque aussi les données à la dernière date où une guérison est renseignée.
-        valid_r = df[df["Retablis"] > 0]
-        if not valid_r.empty:
-            last_valid_date = valid_r["Date"].max()
-            df = df[df["Date"] <= last_valid_date]
+    def _filter_dates(
+        self, df: pd.DataFrame, start_date: str, end_date: str
+    ) -> pd.DataFrame:
+        """Filtrage temporel optionnel"""
+        df = df.copy()
+        df["date"] = pd.to_datetime(df["date"])
 
-        return df
+        if start_date:
+            df = df[df["date"] >= pd.to_datetime(start_date)]
+        if end_date:
+            df = df[df["date"] <= pd.to_datetime(end_date)]
 
-    def _aggregate_data(
-        self,
-        confirmed: pd.DataFrame,
-        deaths: pd.DataFrame,
-        recovered: pd.DataFrame,
-        country: str,
-    ):
-        """Agrège les données brutes pour le pays spécifié"""
-        return pd.DataFrame(
-            {
-                "Infectes": confirmed.loc[confirmed["Country/Region"] == country]
-                .iloc[:, 4:]
-                .sum(),
-                "Deces": deaths.loc[deaths["Country/Region"] == country]
-                .iloc[:, 4:]
-                .sum(),
-                "Retablis": recovered.loc[recovered["Country/Region"] == country]
-                .iloc[:, 4:]
-                .sum(),
-            }
-        )
-
-    def _filter_anomalies(self, df: pd.DataFrame) -> pd.DataFrame:
-        """
-        Corrige les anomalies communes dans les données épidémiques
-        1. Élimination des valeurs négatives
-        2. Correction des diminutions illogiques (les compteurs ne doivent pas diminuer)
-        """
-        # Suppression des valeurs négatives par seuillage
-        for col in ["Infectes", "Retablis", "Deces"]:
-            df[col] = df[col].clip(lower=0)
-
-        # Application d'un cumul maximum pour éviter les diminutions
-        for col in ["Retablis", "Deces"]:
-            df[col] = df[col].cummax()
+        if len(df) < 50:
+            raise ValueError(
+                f"Période trop courte ({len(df)} jours) pour {self.country}"
+            )
 
         return df
 
-    def _save(self, df: pd.DataFrame, filename: str):
-        """Sauvegarde le DataFrame nettoyé au format CSV"""
-        path = self.processed_path / filename
-        df.to_csv(path, index=False)
+    def _calculate_sird(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Calcule les compartiments S, I, R, D"""
+        population = df["population"].iloc[0]
 
-    def _split_and_save(self, df: pd.DataFrame, country: str, save: bool = True):
-        """Crée une séparation temporelle 80/20 (train/test) et les sauvegarde"""
-        split_idx = int(0.8 * len(df))
-        df_train = df.iloc[:split_idx]
-        df_test = df.iloc[split_idx:]
+        # Nettoyage des colonnes d'intérêt
+        df["total_cases"] = df["total_cases"].ffill().clip(lower=0)
+        df["total_deaths"] = df["total_deaths"].ffill().clip(lower=0)
 
-        if save:
-            self._save(df_train, f"sird_{country.lower()}_train.csv")
-            self._save(df_test, f"sird_{country.lower()}_test.csv")
+        # Calcul des infectés : somme glissante des nouveaux cas
+        new_cases = df["total_cases"].diff().fillna(0).clip(lower=0)
+        df["infected"] = new_cases.rolling(window=14, min_periods=1).sum()
 
-        return df_train, df_test
+        # Recovered = total_cases - infected - deaths
+        df["recovered"] = (
+            df["total_cases"] - df["infected"] - df["total_deaths"]
+        ).clip(lower=0)
+
+        # Susceptibles = population - tout le reste
+        df["susceptible"] = (
+            population - df["infected"] - df["recovered"] - df["total_deaths"]
+        ).clip(lower=0)
+
+        # Normalisation
+        df["S"] = (df["susceptible"] / population).clip(0, 1)
+        df["I"] = (df["infected"] / population).clip(0, 1)
+        df["R"] = (df["recovered"] / population).clip(0, 1)
+        df["D"] = (df["total_deaths"] / population).clip(0, 1)
+
+        # Ajout du jour relatif
+        df["Jour"] = (df["date"] - df["date"].min()).dt.days + 1
+
+        return df[["date", "Jour", "S", "I", "R", "D"]].fillna(0)
+
+    def _split_data(self, df: pd.DataFrame) -> tuple:
+        """Découpe 80/20 pour train/test"""
+        split_idx = max(int(len(df) * 0.8), 50)
+        return df.iloc[:split_idx], df.iloc[split_idx:]
+
+    def _save(self, train: pd.DataFrame, test: pd.DataFrame):
+        """Sauvegarde des fichiers CSV"""
+        base = f"sird_{self.country.lower()}"
+        train.to_csv(self.processed_path / f"{base}_train.csv", index=False)
+        test.to_csv(self.processed_path / f"{base}_test.csv", index=False)
