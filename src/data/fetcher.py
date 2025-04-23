@@ -8,14 +8,15 @@ from tqdm import tqdm
 class DataFetcher:
     """
     Classe responsable du téléchargement et du chargement des données brutes COVID-19
-
-    Attributes:
-        raw_path (Path): Répertoire de stockage des données brutes
-        url (str): URL source du dataset
-        file_path (Path): Chemin complet vers le fichier CSV téléchargé
     """
 
     def __init__(self, raw_path: Path):
+        """
+        Args:
+            raw_path: Répertoire de stockage des données brutes
+            url: URL source du dataset
+            file_path: Chemin complet vers le fichier CSV téléchargé
+        """
         # Par défaut : <project_root>/data/raw
         self.raw_path = raw_path or Path(__file__).resolve().parents[2] / "data/raw"
         self.raw_path.mkdir(parents=True, exist_ok=True)

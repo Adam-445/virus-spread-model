@@ -1,17 +1,37 @@
 {
-    "pays": "morocco",
-    "nombre_jours_total": 1096,
-    "plage_dates": {
-        "debut": "2020-05-01T00:00:00",
-        "fin": "2023-05-01T00:00:00"
+  "pays": "morocco",
+  "periode_jours": 1674,
+  "date_min": "2020-01-05T00:00:00",
+  "date_max": "2024-08-04T00:00:00",
+  "metriques": {
+    "S": {
+      "moyenne": 0.9768017096868205,
+      "max": 1.0,
+      "min": 0.965851999050883,
+      "nan_count": "0"
     },
-    "derniere_maj": "2025-04-17T20:32:07.422262",
-    "colonnes": [
-        "date",
-        "Jour",
-        "S",
-        "I",
-        "R",
-        "D"
-    ]
+    "I": {
+      "moyenne": 0.00028558662681457995,
+      "max": 0.0034317924705808,
+      "min": 0.0,
+      "nan_count": "0"
+    },
+    "R": {
+      "moyenne": 0.022596924706273086,
+      "max": 0.0337127131481957,
+      "min": 0.0,
+      "nan_count": "0"
+    },
+    "D": {
+      "moyenne": 0.00031577898009185605,
+      "max": 0.0004352878009212,
+      "min": 0.0,
+      "nan_count": "0"
+    }
+  },
+  "validation": {
+    "tolerance": 0.01,
+    "date_validation": "2025-05-02T10:00:40.317226",
+    "status": "SUCCES"
+  }
 }
