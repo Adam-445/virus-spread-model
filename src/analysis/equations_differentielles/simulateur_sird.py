@@ -100,7 +100,7 @@ class SimulateurSIRD:
         y0 = np.array(
             [
                 df["S"].iloc[0],  # Population saine initiale
-                max(df["I"].iloc[0], 1e-6),  # Infectés initiaux
+                max(df["I"].iloc[0], 1e-5),  # Infectés initiaux
                 df["R"].iloc[0],  # Guéris initiaux
                 df["D"].iloc[0],  # Décédés initiaux
             ]
