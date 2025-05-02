@@ -161,6 +161,11 @@ class DataCleaner:
         for col in ["S", "I", "R", "D", "V"]:
             df[col] = (df[f"{col}_abs"] / population).clip(0, 1)
 
+        # Moyenne des lits disponibles par 1000 personnes (valeur constante pour tout le pays)
+        beds = df["hospital_beds_per_thousand"].dropna()
+        beds_value = beds.iloc[0] if not beds.empty else 0
+        df["lits_par_mille"] = beds_value
+
         # Ajout du jour relatif
         df["Jour"] = (df["date"] - df["date"].min()).dt.days + 1
         df = df.set_index("Jour").sort_index()
@@ -178,6 +183,7 @@ class DataCleaner:
                 "D_abs",
                 "V",
                 "V_abs",
+                "lits_par_mille"
             ]
         ].fillna(0)
 
