@@ -70,7 +70,10 @@ class DataPipeline:
 
             # Étape 2: Nettoyage et transformation
             cleaner = DataCleaner(
-                processed_path=self.processed_path, country=self.country
+                processed_path=self.processed_path,
+                country=self.country,
+                smoothing=True,
+                window_size=7,
             )
             cleaned_data = cleaner.clean_and_save(
                 raw_data, start_date=start_date, end_date=end_date
