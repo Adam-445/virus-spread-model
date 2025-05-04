@@ -59,7 +59,7 @@ class ResolutionSIRD:
         I = self.df["I"].values
         for i, val in enumerate(I):
             if val > self.Imax:
-                return i
+                return i+1
         return None  # Aucun dépassement
         #nombre de reproduction
     def reproduction(self):
