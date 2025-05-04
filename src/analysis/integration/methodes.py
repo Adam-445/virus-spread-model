@@ -3,7 +3,6 @@ import numpy as np
 import pandas as pd
 
 
-df = pd.read_csv("sird_morocco_train.csv", parse_dates=["date"])
 # data sous form csv
 # l'ajout d un point car simpson necessite un nombre impaire de points
 
@@ -64,10 +63,3 @@ class Integration:
         return self.h * somme_rectangle_droite
 
 
-
-# print(len(df))
-# intg = Integration(df,'I',1)
-# print(intg.rect_droite())
-# print(intg.rect_gauche())
-# print(intg.simpson())
-# print(intg.trapeze())

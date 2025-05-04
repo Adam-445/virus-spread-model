@@ -1,11 +1,12 @@
 import numpy as np
 import pandas as pd
-
-
-df = pd.read_csv("sird_morocco_train.csv", parse_dates=["date"])
-df.set_index("Jour")
-
+#  ------>
+# Le phénomène de Runge pour lagrange et newton 
+# les division de Chebyshev reduire le prb mais en notre cas y'a pas une grande diff (overflow)
+# les valeur tres proches => resultat inf en quelque cas et le nombre de points aussi favorise cela
+# meilleur methose spline
 # data sous form csv
+
 class Interpolation:
     """
         df: Le DataFrame(csv) contenant les données.
@@ -18,9 +19,22 @@ class Interpolation:
         self.x = df.index.to_numpy()
         self.y = df[col].to_numpy()
 
-    def lagrange_interpolation(self, x_val):
+    def lagrange_interpolation(self, x_val,use_chebyshev = False):
         n = len(self.x)
+        a, b = self.x[0], self.x[-1]
         result = 0
+        if use_chebyshev:
+            print("cheb")
+        # Génération des nœuds de Chebyshev dans [-1, 1], puis transformation vers [a, b]
+            k = np.arange(n)
+            theta = (2 * k + 1) * np.pi / (2 * n)
+            x_cheb = (a + b) / 2 + (b - a) / 2 * np.cos(theta)
+
+            # Évaluer les valeurs y aux nœuds de Chebyshev en interpolant les données originales
+            y_cheb = np.interp(x_cheb, self.x, self.y)  # Interpolation linéaire
+
+            # Remplacer les données originales par les nœuds de Chebyshev
+            self.x, self.y = x_cheb, y_cheb
 
         for i in range(n):
             term = self.y[i]  # valeur f(i)
@@ -91,5 +105,4 @@ class Interpolation:
                 dx = x_val - x[i]
                 return a[i] + b[i]*dx + c[i]*dx**2 + d[i]*dx**3
 
-        
 

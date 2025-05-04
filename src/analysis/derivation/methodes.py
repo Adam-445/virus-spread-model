@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 
-df = pd.read_csv("sird_morocco_train.csv", parse_dates=["date"])
+# df = pd.read_csv("sird_morocco_train.csv", parse_dates=["date"])
 # data sous form csv
 
 class Derivation:
@@ -51,8 +51,3 @@ class Derivation:
 
         return d2fx
 
-# ----> Laffichage de 1er et 2 derivée
-# derv = Derivation(df,'R',1)
-# df["1st Derivée"] = derv.premier_derivation_5point()
-# df["2st Derivée"] = derv.second_derivation_5point()
-# print(df)
