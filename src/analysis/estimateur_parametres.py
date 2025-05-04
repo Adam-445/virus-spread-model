@@ -28,6 +28,6 @@ def estimer_parametres_rab(df: pd.DataFrame) -> dict[str, float]:
     r_values = (df["dI_dt"][valid] + (a + b) * df["I"][valid]) / (
         df["S"][valid] * df["I"][valid]
     )
-    r = np.nanmedian(r_values)
+    r = r_values.median()
 
-    return {"r": r, "a": a, "b": b}
+    return {"r": float(r), "a": float(a), "b": float(b)}

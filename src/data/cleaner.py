@@ -146,7 +146,7 @@ class DataCleaner:
 
         Les valeurs sont stockées en absolu et en proportion de la population.
         """
-        population = df["population"].iloc[0]
+        self.population = df["population"].iloc[0]
 
         # Nettoyage des colonnes d'intérêt
         df["total_cases"] = df["total_cases"].ffill().clip(lower=0)
@@ -160,7 +160,7 @@ class DataCleaner:
         df["R_abs"] = (df["total_cases"] - df["I_abs"] - df["D_abs"]).clip(lower=0)
 
         # Susceptibles = population - tout le reste
-        df["S_abs"] = (population - df["I_abs"] - df["R_abs"] - df["D_abs"]).clip(
+        df["S_abs"] = (self.population - df["I_abs"] - df["R_abs"] - df["D_abs"]).clip(
             lower=0
         )
 
@@ -169,7 +169,7 @@ class DataCleaner:
 
         # Normalisation par la population
         for col in ["S", "I", "R", "D", "V"]:
-            df[col] = (df[f"{col}_abs"] / population).clip(0, 1)
+            df[col] = (df[f"{col}_abs"] / self.population).clip(0, 1)
 
         # Moyenne des lits disponibles par 1000 personnes (valeur constante pour tout le pays)
         beds = df["hospital_beds_per_thousand"].dropna()
