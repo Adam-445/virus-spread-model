@@ -48,9 +48,10 @@ class DataPipeline:
         self,
         start_date: str = None,
         end_date: str = None,
+        split: str = "train",
         tolerance: float = 0.01,
         smoothing: bool = True,
-        window_size: int = 7
+        window_size: int = 7,
     ) -> pd.DataFrame:
         """
         Exécute le pipeline complet de traitement des données.
@@ -90,7 +91,7 @@ class DataPipeline:
             )
             validation_report = validator.validate()
 
-            return validation_report["train"]
+            return validation_report[split]
 
         except Exception as e:
             raise RuntimeError(
