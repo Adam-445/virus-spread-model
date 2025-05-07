@@ -14,6 +14,8 @@ class DataCleaner:
         processed_path: Path,
         country: str = "France",
         use_iso_code: bool = False,
+        smoothing: bool = True,
+        window_size: int = 7,
     ):
         """
         Initialise le nettoyeur de données.
@@ -22,12 +24,16 @@ class DataCleaner:
             processed_path: Répertoire de sortie pour les données nettoyées
             country: Nom du pays ou code ISO3 (case insensitive)
             use_iso_code: True si le pays est spécifié par code ISO3
+            smoothing: Si True, applique un lissage aux données
+            window_size: Taille de la fenêtre pour le lissage (par défaut 7 jours)
 
         Raises:
             ValueError: Si le répertoire de sortie ne peut être créé
         """
         self.country = country.strip().capitalize()
         self.use_iso_code = use_iso_code
+        self.smoothing = smoothing
+        self.window_size = window_size
 
         # Configuration des chemins
         self.processed_path = processed_path
@@ -52,8 +58,9 @@ class DataCleaner:
         1. Filtrage des données par pays
         2. Filtrage temporel
         3. Calcul des métriques SIRD
-        4. Découpe des données
-        5. Sauvegarde (optionnelle)
+        4. Lissage des données (optionnel)
+        5. Découpe des données
+        6. Sauvegarde (optionnelle)
 
         Args:
             global_df: DataFrame brut de l'OWID
@@ -72,6 +79,9 @@ class DataCleaner:
             df = self._filter_dates(df, start_date, end_date)
             # Calcul des compartiments SIRD
             df = self._calculate_sird(df)
+            # Lissage des données si nécessaire
+            if self.smoothing:
+                df = self._smooth_data(df)
             # Split train/test
             train, test = self._split_data(df)
         except KeyError as e:
@@ -136,7 +146,7 @@ class DataCleaner:
 
         Les valeurs sont stockées en absolu et en proportion de la population.
         """
-        population = df["population"].iloc[0]
+        self.population = df["population"].iloc[0]
 
         # Nettoyage des colonnes d'intérêt
         df["total_cases"] = df["total_cases"].ffill().clip(lower=0)
@@ -150,7 +160,7 @@ class DataCleaner:
         df["R_abs"] = (df["total_cases"] - df["I_abs"] - df["D_abs"]).clip(lower=0)
 
         # Susceptibles = population - tout le reste
-        df["S_abs"] = (population - df["I_abs"] - df["R_abs"] - df["D_abs"]).clip(
+        df["S_abs"] = (self.population - df["I_abs"] - df["R_abs"] - df["D_abs"]).clip(
             lower=0
         )
 
@@ -159,7 +169,12 @@ class DataCleaner:
 
         # Normalisation par la population
         for col in ["S", "I", "R", "D", "V"]:
-            df[col] = (df[f"{col}_abs"] / population).clip(0, 1)
+            df[col] = (df[f"{col}_abs"] / self.population).clip(0, 1)
+
+        # Moyenne des lits disponibles par 1000 personnes (valeur constante pour tout le pays)
+        beds = df["hospital_beds_per_thousand"].dropna()
+        beds_value = beds.iloc[0] if not beds.empty else 0
+        df["lits_par_mille"] = beds_value
 
         # Ajout du jour relatif
         df["Jour"] = (df["date"] - df["date"].min()).dt.days + 1
@@ -178,8 +193,28 @@ class DataCleaner:
                 "D_abs",
                 "V",
                 "V_abs",
+                "lits_par_mille",
             ]
         ].fillna(0)
+
+    def _smooth_data(self, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Applique un lissage aux données en utilisant une moyenne mobile.
+
+        Args:
+            df: DataFrame contenant les données à lisser
+
+        Returns:
+            DataFrame avec les données lissées
+        """
+        # Lissage pour les colonnes S, I, R, D
+        columns_to_smooth = ["S", "I", "R", "D", "V"]
+        for col in columns_to_smooth:
+            df[col] = df[col].rolling(window=self.window_size, min_periods=1).mean()
+            df[f"{col}_abs"] = (
+                df[f"{col}_abs"].rolling(window=self.window_size, min_periods=1).mean()
+            )
+        return df
 
     def _split_data(self, df: pd.DataFrame) -> tuple:
         """Découpe les données en ensembles d'entraînement (80%) et de test (20%)."""

@@ -100,7 +100,7 @@ class SimulateurSIRD:
         y0 = np.array(
             [
                 df["S"].iloc[0],  # Population saine initiale
-                max(df["I"].iloc[0], 1e-6),  # Infectés initiaux
+                max(df["I"].iloc[0], 1e-5),  # Infectés initiaux
                 df["R"].iloc[0],  # Guéris initiaux
                 df["D"].iloc[0],  # Décédés initiaux
             ]
@@ -121,35 +121,3 @@ class SimulateurSIRD:
         return pd.DataFrame(
             {"temps": t, "S": y[:, 0], "I": y[:, 1], "R": y[:, 2], "D": y[:, 3]}
         )
-
-    def comparer_avec_donnees_reelles(
-        self, pays: str, methode: str = "rk4"
-    ) -> pd.DataFrame:
-        """
-        Méthode d'analyse comparative qui calcule trois métriques d'erreur :
-        1. Erreur absolue (différence brute)
-        2. Erreur relative (pourcentage d'erreur)
-
-        Args:
-            pays: Nom du pays pour les données réelles
-            methode: Méthode de résolution numérique
-
-        Returns:
-            DataFrame avec comparaison et métriques d'erreur
-        """
-        # Chargement des données réelles depuis le pipeline
-        donnees = DataPipeline(country=pays).run()
-
-        # Simulation sur la même période que les données réelles
-        simulation = self.resoudre(donnees, len(donnees), methode=methode)
-
-        # Calcul des métriques d'erreur
-        simulation["I_reel"] = donnees["I"].values  # Ajout des données réelles
-        simulation["Erreur_absolue"] = abs(simulation["I"] - simulation["I_reel"])
-
-        # Gestion des divisions par zéro pour l'erreur relative
-        simulation["Erreur_relative"] = simulation["Erreur_absolue"] / simulation[
-            "I_reel"
-        ].replace(0, 1e-9)
-
-        return simulation

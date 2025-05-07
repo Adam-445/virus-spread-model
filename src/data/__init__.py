@@ -48,7 +48,10 @@ class DataPipeline:
         self,
         start_date: str = None,
         end_date: str = None,
+        split: str = "train",
         tolerance: float = 0.01,
+        smoothing: bool = True,
+        window_size: int = 7,
     ) -> pd.DataFrame:
         """
         Exécute le pipeline complet de traitement des données.
@@ -70,11 +73,15 @@ class DataPipeline:
 
             # Étape 2: Nettoyage et transformation
             cleaner = DataCleaner(
-                processed_path=self.processed_path, country=self.country
+                processed_path=self.processed_path,
+                country=self.country,
+                smoothing=smoothing,
+                window_size=window_size,
             )
             cleaned_data = cleaner.clean_and_save(
                 raw_data, start_date=start_date, end_date=end_date
             )
+            self.population = cleaner.population
 
             # Étape 3: Validation de qualité
             validator = DataValidator(
@@ -84,7 +91,7 @@ class DataPipeline:
             )
             validation_report = validator.validate()
 
-            return validation_report["train"]
+            return validation_report[split]
 
         except Exception as e:
             raise RuntimeError(
