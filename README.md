@@ -72,7 +72,6 @@ Stockage :
 ---
 
 ### **Installation et Configuration**
-Voici une version améliorée et concise en français, avec une meilleure structure et des étapes rationalisées :
 
 ### Prérequis
 - Python 3.10+
