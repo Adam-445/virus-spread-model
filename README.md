@@ -81,7 +81,7 @@ Stockage :
 
 #### Avec venv (méthode native) :
 ```bash
-git clone https://github.com/votre_utilisateur/virus-spread-model.git
+git clone https://github.com/Adam-445/virus-spread-model.git
 cd virus-spread-model
 
 # Création et activation de l'environnement
@@ -97,7 +97,7 @@ pip install -e . jupyter
 
 #### Avec Conda :
 ```bash
-git clone https://github.com/votre_utilisateur/virus-spread-model.git
+git clone https://github.com/Adam-445/virus-spread-model.git
 cd virus-spread-model
 
 # Création et activation de l'environnement
